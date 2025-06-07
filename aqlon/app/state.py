@@ -55,11 +55,15 @@ class AgentState(BaseModel):
     # Planner node enhancements
     plan_steps: Optional[List[Dict[str, Any]]] = None
     current_step_index: Optional[int] = None
-    plan_critique: Optional[Dict[str, Any]] = None
+    plan_critique: Optional[Dict[str, Any]] = {}  # Initialize as empty dict instead of None
     plan_context: Optional[Dict[str, Any]] = None
+    planning_progress: Optional[Dict[str, Any]] = None
+    planner_error: Optional[str] = None
     
     # Memory timeline
     event_timeline: Optional[List[Dict[str, Any]]] = None
+    timeline_summary: Optional[Dict[str, Any]] = None
+    timeline_error: Optional[str] = None
     
     # Add more fields as needed for your agent's state
 

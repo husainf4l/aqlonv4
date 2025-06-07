@@ -398,7 +398,13 @@ def planner_node(state: AgentState) -> AgentState:
         # 5. Store the final plan in state
         state.plan_steps = final_plan
         state.current_step_index = 0
-        state.plan_critique = critique
+        
+        # Ensure critique is a dictionary for state storage
+        if isinstance(critique, list):
+            state.plan_critique = {"issues": critique}
+        else:
+            state.plan_critique = critique if isinstance(critique, dict) else {"critique": critique}
+            
         state.plan_context = {
             "context_utilized": context_utilized,
             "generated_at": datetime.now().isoformat(),

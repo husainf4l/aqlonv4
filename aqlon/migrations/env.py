@@ -18,7 +18,7 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Import metadata from SQLAlchemy models
-from app.nodes.memory_node import Base
+from app.models.database import Base
 from app.settings import settings
 
 # Interpret the config file for Python logging.

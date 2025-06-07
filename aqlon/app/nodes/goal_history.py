@@ -6,8 +6,8 @@ from sqlalchemy.sql import func
 import uuid
 from datetime import datetime
 
-# Re-use the SQLAlchemy Base from memory_node to maintain consistency
-from app.nodes.memory_node import Base, engine, SessionLocal
+# Import Base and SessionLocal from database module
+from app.models.database import Base, SessionLocal, engine
 
 # Define Goal History Schema
 class GoalHistory(Base):
@@ -20,7 +20,7 @@ class GoalHistory(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_info = Column(JSONB, nullable=True)  # Renamed from 'metadata' which is reserved in SQLAlchemy
     success_score = Column(Float, nullable=True)  # 0-1, measure of goal completion
     parent_goal_id = Column(PG_UUID(as_uuid=True), nullable=True)  # For hierarchical goals
 
@@ -45,7 +45,7 @@ def save_goal(
             status=status,
             priority=priority,
             parent_goal_id=parent_goal_id,
-            metadata=metadata
+            meta_info=metadata
         )
         session.add(goal)
         session.commit()
@@ -80,10 +80,10 @@ def update_goal_status(goal_id: uuid.UUID, status: str, success_score=None, meta
             goal.success_score = success_score
             
         if metadata:
-            if goal.metadata:
-                goal.metadata.update(metadata)
+            if goal.meta_info:
+                goal.meta_info.update(metadata)
             else:
-                goal.metadata = metadata
+                goal.meta_info = metadata
                 
         session.commit()
         logger.info(f"Goal {goal_id} updated: status={status}")

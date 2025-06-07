@@ -7,13 +7,13 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy import desc
 
 from app.logger import logger
-from app.nodes.memory_node import MemoryEvent, SessionLocal as MemorySessionLocal
+from app.models.memory_models import MemoryEvent
+from app.models.database import SessionLocal
 from app.nodes.goal_history import (
     GoalHistory, 
     save_goal, 
     update_goal_status, 
-    get_active_goals,
-    SessionLocal as GoalSessionLocal
+    get_active_goals
 )
 
 class Memory:
@@ -31,11 +31,11 @@ class Memory:
                     notes: Optional[str] = None,
                     meta: Optional[Dict[str, Any]] = None) -> uuid.UUID:
         """Record a memory event in the database"""
-        if not MemorySessionLocal:
+        if not SessionLocal:
             logger.warning("Database connection not available, skipping memory event recording")
             return None
         
-        session = MemorySessionLocal()
+        session = SessionLocal()
         try:
             event = MemoryEvent(
                 goal_id=goal_id,
@@ -104,11 +104,11 @@ class Memory:
                         limit: int = 20,
                         session_id: Optional[uuid.UUID] = None) -> List[GoalHistory]:
         """Get goal history within the specified time range"""
-        if not GoalSessionLocal:
+        if not SessionLocal:
             logger.warning("Database connection not available, skipping goal history query")
             return []
         
-        session = GoalSessionLocal()
+        session = SessionLocal()
         try:
             cutoff_time = datetime.now() - timedelta(hours=hours_back)
             query = session.query(GoalHistory).filter(GoalHistory.created_at >= cutoff_time)
@@ -132,11 +132,11 @@ class Memory:
                           goal_id: uuid.UUID, 
                           limit: int = 20) -> List[MemoryEvent]:
         """Get memory events related to a specific goal"""
-        if not MemorySessionLocal:
+        if not SessionLocal:
             logger.warning("Database connection not available, skipping event query")
             return []
         
-        session = MemorySessionLocal()
+        session = SessionLocal()
         try:
             events = session.query(MemoryEvent).filter(
                 MemoryEvent.goal_id == goal_id
@@ -154,17 +154,17 @@ class Memory:
                       session_id: Optional[uuid.UUID] = None,
                       limit: int = 100) -> List[MemoryEvent]:
         """Replay memory events from a specific session"""
-        if not MemorySessionLocal:
+        if not SessionLocal:
             logger.warning("Database connection not available, skipping session replay")
             return []
             
         # If no session ID provided, use current session
         session_id = session_id or self.session_id
         
-        session = MemorySessionLocal()
+        session = SessionLocal()
         try:
             # Get all goals for the session
-            goal_session = GoalSessionLocal()
+            goal_session = SessionLocal()
             goals = goal_session.query(GoalHistory).filter(
                 GoalHistory.session_id == session_id
             ).all()
@@ -223,8 +223,8 @@ class Memory:
             cutoff_time = datetime.now() - timedelta(hours=hours_back)
             
             # Get goals if requested
-            if include_goals and GoalSessionLocal:
-                goal_session = GoalSessionLocal()
+            if include_goals and SessionLocal:
+                goal_session = SessionLocal()
                 try:
                     goals = goal_session.query(GoalHistory).filter(
                         GoalHistory.session_id == target_session_id,
@@ -239,7 +239,7 @@ class Memory:
                             "content": goal.goal_text,
                             "status": goal.status,
                             "priority": goal.priority,
-                            "metadata": goal.metadata
+                            "metadata": goal.meta_info
                         })
                 except Exception as e:
                     logger.error(f"Timeline goal query error: {e}")
@@ -247,13 +247,13 @@ class Memory:
                     goal_session.close()
             
             # Get events if requested
-            if include_events and MemorySessionLocal:
-                memory_session = MemorySessionLocal()
+            if include_events and SessionLocal:
+                memory_session = SessionLocal()
                 try:
                     # First get all goals for this session to filter events
                     goal_ids = []
-                    if GoalSessionLocal:
-                        goal_session = GoalSessionLocal()
+                    if SessionLocal:
+                        goal_session = SessionLocal()
                         goals = goal_session.query(GoalHistory).filter(
                             GoalHistory.session_id == target_session_id
                         ).all()
@@ -303,6 +303,18 @@ class Memory:
         except Exception as e:
             logger.error(f"Timeline generation error: {e}")
             return timeline
+        
+    def record_db_event(self, event):
+        """Record a database event in working memory for reference"""
+        if event and hasattr(event, 'id'):
+            # Store the event ID in working memory for quick reference
+            self.store_in_working_memory(f"last_event_{event.id}", {
+                "id": str(event.id),
+                "timestamp": event.timestamp.isoformat() if event.timestamp else None,
+                "action": event.agent_action[:100] if event.agent_action else None
+            })
+            return True
+        return False
 
 # Global instance for convenient access
 memory = Memory()

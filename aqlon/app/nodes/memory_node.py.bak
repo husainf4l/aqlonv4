@@ -1,11 +1,27 @@
 from app.logger import logger
 from app.state import AgentState
-from app.models.database import SessionLocal
-from app.models.memory_models import MemoryEvent
+from app.settings import settings
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 import uuid
 
-# Import memory after our imports to prevent circular dependency
-from app.memory import memory
+# Import models from the central models module
+from app.models.memory_models import Base, MemoryEvent
+
+# Initialize database connection only when the module is loaded
+engine = None
+SessionLocal = None
+
+try:
+    DATABASE_URL = settings.get_effective_database_url()
+    if DATABASE_URL:
+        engine = create_engine(DATABASE_URL, echo=False, future=True)
+        SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+        logger.info(f"Database connection initialized with URL: {DATABASE_URL}")
+    else:
+        logger.warning("No database URL available in settings")
+except Exception as e:
+    logger.error(f"Failed to connect to database: {e}")
 
 def memory_node(state: AgentState) -> AgentState:
     logger.info(f"[MemoryNode] Received state: {state}")
@@ -30,23 +46,34 @@ def memory_node(state: AgentState) -> AgentState:
         )
         session.add(event)
         session.commit()
-        logger.info(f"[MemoryNode] Recorded memory event: {event.id}")
-        
-        # Use memory system to record event
-        if memory:
-            memory.record_db_event(event)
-        
-        # Update state with event ID
-        state.last_event_id = event.id
+        logger.info(f"[MemoryNode] Inserted MemoryEvent: {event}")
     except Exception as e:
-        logger.error(f"Error recording memory event: {e}")
+        logger.error(f"Memory node error: {e}")
         session.rollback()
     finally:
         session.close()
     
-    # Generate timeline for state
+    # Generate and update timeline in state
     try:
-        timeline = memory.get_timeline() if memory else {"items": [], "total_items": 0}
+        # Check if timeline update is requested or if we should use default settings
+        timeline_hours = getattr(state, "timeline_hours", 24)
+        timeline_limit = getattr(state, "timeline_limit", 50)
+        include_goals = getattr(state, "timeline_include_goals", True)
+        include_events = getattr(state, "timeline_include_events", True)
+        
+        # Get the session ID from state or use the current memory session
+        session_id = getattr(state, "session_id", None) or memory.session_id
+        
+        # Generate timeline
+        timeline = memory.get_timeline(
+            hours_back=timeline_hours,
+            limit=timeline_limit,
+            include_goals=include_goals,
+            include_events=include_events,
+            session_id=session_id
+        )
+        
+        # Update state with timeline
         state.event_timeline = timeline.get("items", [])
         state.timeline_summary = {
             "total_items": timeline.get("total_items", 0),
@@ -66,7 +93,6 @@ def memory_node(state: AgentState) -> AgentState:
     return state
 
 if __name__ == "__main__":
-    from app.models.database import engine, Base
     if engine:
         try:
             # Note: Create tables is only for development/testing
