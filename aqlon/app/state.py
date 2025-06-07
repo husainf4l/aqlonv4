@@ -64,6 +64,7 @@ class AgentState(BaseModel):
     event_timeline: Optional[List[Dict[str, Any]]] = None
     timeline_summary: Optional[Dict[str, Any]] = None
     timeline_error: Optional[str] = None
+    last_event_id: Optional[uuid.UUID] = None
     
     # Add more fields as needed for your agent's state
 
