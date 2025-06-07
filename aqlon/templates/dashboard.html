@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>AQLON Agent Dashboard</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      header {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        margin: 0;
+        color: #2c3e50;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-gap: 20px;
+      }
+
+      @media (max-width: 768px) {
+        .dashboard-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .card h2 {
+        margin-top: 0;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+        color: #3498db;
+      }
+
+      .session-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .session-item {
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 4px;
+        border-left: 4px solid #3498db;
+        background-color: #f8f9fa;
+        cursor: pointer;
+      }
+
+      .session-item.active {
+        background-color: #e3f2fd;
+        border-left-color: #2980b9;
+      }
+
+      .session-item:hover {
+        background-color: #e3f2fd;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-left: 8px;
+      }
+
+      .badge-running {
+        background-color: #2ecc71;
+        color: white;
+      }
+
+      .badge-completed {
+        background-color: #3498db;
+        color: white;
+      }
+
+      .badge-error {
+        background-color: #e74c3c;
+        color: white;
+      }
+
+      pre {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        padding: 10px;
+        overflow-x: auto;
+        font-size: 14px;
+      }
+
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.3s;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+
+      input[type="text"],
+      textarea {
+        width: 100%;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        box-sizing: border-box;
+      }
+
+      textarea {
+        min-height: 80px;
+      }
+
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .monospace {
+        font-family: monospace;
+      }
+
+      .graph-container {
+        width: 100%;
+        height: 400px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 15px;
+      }
+
+      .tab {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+      }
+
+      .tab.active {
+        border-bottom: 3px solid #3498db;
+        font-weight: 600;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      .loader {
+        border: 3px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 3px solid #3498db;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 10px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .timeline {
+        margin-top: 20px;
+        position: relative;
+      }
+
+      .timeline::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 15px;
+        width: 2px;
+        background-color: #ddd;
+      }
+
+      .timeline-item {
+        padding-left: 40px;
+        position: relative;
+        margin-bottom: 20px;
+      }
+
+      .timeline-marker {
+        position: absolute;
+        left: 10px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #3498db;
+        top: 5px;
+      }
+
+      .timeline-content {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+      }
+
+      .timeline-time {
+        font-size: 12px;
+        color: #7f8c8d;
+      }
+
+      #error-message {
+        display: none;
+        background-color: #ffecec;
+        color: #e74c3c;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        border-left: 4px solid #e74c3c;
+      }
+
+      /* LangGraph visualization styles */
+      #graph-visualization {
+        width: 100%;
+        height: 500px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .node {
+        fill: #3498db;
+        stroke: #2980b9;
+        stroke-width: 2px;
+        transition: all 0.3s ease;
+      }
+
+      .node:hover {
+        fill: #2ecc71;
+      }
+
+      .node-active {
+        fill: #2ecc71;
+      }
+
+      .node-completed {
+        fill: #95a5a6;
+      }
+
+      .node-text {
+        font-size: 12px;
+        font-weight: 600;
+        text-anchor: middle;
+        pointer-events: none;
+      }
+
+      .edge {
+        stroke: #bdc3c7;
+        stroke-width: 2px;
+        transition: all 0.3s ease;
+      }
+
+      .edge-active {
+        stroke: #3498db;
+        stroke-width: 3px;
+      }
+
+      .edge-conditional {
+        stroke-dasharray: 5, 5;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>AQLON Agent Dashboard</h1>
+      <p>Monitor and control your AQLON agent sessions</p>
+    </header>
+
+    <div id="error-message"></div>
+
+    <div class="dashboard-grid">
+      <div class="card">
+        <h2>Create New Session</h2>
+        <form id="session-form">
+          <div class="form-group">
+            <label for="goal">Goal:</label>
+            <textarea
+              id="goal"
+              name="goal"
+              required
+              placeholder="Enter the agent's goal..."
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="initial-context">Initial Context (optional):</label>
+            <textarea
+              id="initial-context"
+              name="initial_context"
+              placeholder="Provide initial context..."
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="max-iterations">Max Iterations:</label>
+            <input
+              type="number"
+              id="max-iterations"
+              name="max_iterations"
+              value="5"
+              min="1"
+              max="20"
+            />
+          </div>
+          <button type="submit">Start Agent Session</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Active Sessions</h2>
+        <ul class="session-list" id="sessions-list">
+          <li class="session-item">
+            <span>Loading sessions...</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1">
+        <h2>Session Details</h2>
+        <div id="no-session-selected" style="text-align: center; padding: 30px">
+          <p>Select a session to view details</p>
+        </div>
+        <div id="session-details" style="display: none">
+          <div class="status-row">
+            <div>
+              <strong>Status:</strong>
+              <span id="session-status">Unknown</span>
+            </div>
+            <div>
+              <strong>Iterations:</strong>
+              <span id="session-iterations">0/0</span>
+            </div>
+            <div>
+              <strong>Created:</strong>
+              <span id="session-created">Unknown</span>
+            </div>
+          </div>
+
+          <div class="status-row">
+            <div>
+              <strong>Session ID:</strong>
+              <span id="session-id" class="monospace">Unknown</span>
+            </div>
+          </div>
+
+          <div class="tabs">
+            <div class="tab active" data-tab="goal">Goal</div>
+            <div class="tab" data-tab="state">Current State</div>
+            <div class="tab" data-tab="plan">Plan</div>
+            <div class="tab" data-tab="graph">LangGraph</div>
+            <div class="tab" data-tab="timeline">Timeline</div>
+          </div>
+
+          <div class="tab-content active" id="goal-tab">
+            <p id="session-goal">No goal information available</p>
+          </div>
+
+          <div class="tab-content" id="state-tab">
+            <pre id="session-state">No state information available</pre>
+          </div>
+
+          <div class="tab-content" id="plan-tab">
+            <pre id="session-plan">No plan information available</pre>
+          </div>
+
+          <div class="tab-content" id="graph-tab">
+            <div class="graph-container" id="graph-visualization">
+              <p>LangGraph visualization coming soon...</p>
+            </div>
+          </div>
+
+          <div class="tab-content" id="timeline-tab">
+            <div class="timeline" id="session-timeline">
+              <p>No timeline events available</p>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; display: flex; gap: 10px">
+            <button id="refresh-session">Refresh</button>
+            <button id="export-logs">Export Logs</button>
+            <button id="export-memory">Export Memory</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/langgraph-viz.js"></script>
+    <script>
+      // API endpoint prefix
+      const API_BASE = "/api/v1";
+
+      // Current selected session ID
+      let currentSessionId = null;
+      let refreshInterval = null;
+      let graphVisualizer = null;
+
+      // LangGraph data
+      const graphData = {
+        nodes: [
+          { id: "goal_generator_node", label: "Goal Generator", level: 0 },
+          { id: "optimization_node", label: "Optimization", level: 1 },
+          { id: "planner_node", label: "Planner", level: 2 },
+          { id: "action_node", label: "Action", level: 3 },
+          { id: "browser_action_node", label: "Browser Action", level: 3 },
+          { id: "memory_node", label: "Memory", level: 4 },
+          { id: "goal_completion_check_node", label: "Goal Check", level: 5 },
+        ],
+        edges: [
+          {
+            source: "goal_generator_node",
+            target: "optimization_node",
+            type: "normal",
+          },
+          {
+            source: "optimization_node",
+            target: "planner_node",
+            type: "conditional",
+            label: "to_planner",
+          },
+          {
+            source: "optimization_node",
+            target: "action_node",
+            type: "conditional",
+            label: "to_action",
+          },
+          {
+            source: "planner_node",
+            target: "action_node",
+            type: "conditional",
+            label: "regular_action",
+          },
+          {
+            source: "planner_node",
+            target: "browser_action_node",
+            type: "conditional",
+            label: "browser_action",
+          },
+          { source: "action_node", target: "memory_node", type: "normal" },
+          {
+            source: "browser_action_node",
+            target: "memory_node",
+            type: "normal",
+          },
+          {
+            source: "memory_node",
+            target: "goal_completion_check_node",
+            type: "normal",
+          },
+          {
+            source: "goal_completion_check_node",
+            target: "goal_generator_node",
+            type: "conditional",
+            label: "continue",
+          },
+        ],
+      };
+
+      // Initialize graph visualization
+      function initGraphVisualization() {
+        if (
+          !graphVisualizer &&
+          document.getElementById("graph-visualization")
+        ) {
+          // Initialize the visualizer with our graph data
+          graphVisualizer = new LangGraphVisualizer(
+            "graph-visualization",
+            graphData
+          );
+        }
+      }
+
+      // Document ready function
+      document.addEventListener("DOMContentLoaded", function () {
+        loadSessions();
+        initGraphVisualization();
+
+        // Tab switching
+        document.querySelectorAll(".tab").forEach((tab) => {
+          tab.addEventListener("click", function () {
+            const tabId = this.dataset.tab;
+
+            // Deactivate all tabs and contents
+            document
+              .querySelectorAll(".tab")
+              .forEach((t) => t.classList.remove("active"));
+            document
+              .querySelectorAll(".tab-content")
+              .forEach((c) => c.classList.remove("active"));
+
+            // Activate the clicked tab and content
+            this.classList.add("active");
+            document.getElementById(`${tabId}-tab`).classList.add("active");
+          });
+        });
+
+        // Form submission
+        document
+          .getElementById("session-form")
+          .addEventListener("submit", function (e) {
+            e.preventDefault();
+            startNewSession();
+          });
+
+        // Refresh button
+        document
+          .getElementById("refresh-session")
+          .addEventListener("click", function () {
+            if (currentSessionId) {
+              loadSessionDetails(currentSessionId);
+            }
+          });
+
+        // Export logs button
+        document
+          .getElementById("export-logs")
+          .addEventListener("click", function () {
+            if (currentSessionId) {
+              exportSessionLogs(currentSessionId);
+            }
+          });
+
+        // Export memory button
+        document
+          .getElementById("export-memory")
+          .addEventListener("click", function () {
+            exportMemorySnapshot();
+          });
+      });
+
+      // Load all sessions
+      async function loadSessions() {
+        try {
+          const response = await fetch(`${API_BASE}/sessions`);
+          const data = await response.json();
+
+          const sessionsList = document.getElementById("sessions-list");
+          sessionsList.innerHTML = "";
+
+          if (data.length === 0) {
+            sessionsList.innerHTML =
+              '<li class="session-item">No active sessions</li>';
+            return;
+          }
+
+          data.forEach((session) => {
+            const item = document.createElement("li");
+            item.className = "session-item";
+            if (session.session_id === currentSessionId) {
+              item.classList.add("active");
+            }
+
+            const goalText = session.goal || "No goal specified";
+            const truncatedGoal =
+              goalText.length > 50
+                ? goalText.substring(0, 50) + "..."
+                : goalText;
+
+            const statusBadge = document.createElement("span");
+            statusBadge.className = `badge badge-${session.status.toLowerCase()}`;
+            statusBadge.textContent = session.status;
+
+            item.innerHTML = `${truncatedGoal}`;
+            item.appendChild(statusBadge);
+
+            item.addEventListener("click", function () {
+              currentSessionId = session.session_id;
+              loadSessionDetails(session.session_id);
+
+              // Update active class
+              document
+                .querySelectorAll(".session-item")
+                .forEach((s) => s.classList.remove("active"));
+              item.classList.add("active");
+            });
+
+            sessionsList.appendChild(item);
+          });
+        } catch (error) {
+          showError("Failed to load sessions: " + error.message);
+        }
+      }
+
+      // Load session details
+      async function loadSessionDetails(sessionId) {
+        try {
+          const response = await fetch(`${API_BASE}/session/${sessionId}`);
+          const session = await response.json();
+
+          // Update UI with session details
+          document.getElementById("no-session-selected").style.display = "none";
+          document.getElementById("session-details").style.display = "block";
+
+          document.getElementById("session-status").textContent =
+            session.status;
+          document.getElementById(
+            "session-iterations"
+          ).textContent = `${session.iterations_completed}/${session.iterations_max}`;
+          document.getElementById("session-created").textContent =
+            formatDateTime(session.created_at);
+          document.getElementById("session-id").textContent =
+            session.session_id;
+          document.getElementById("session-goal").textContent =
+            session.goal || "No goal specified";
+
+          // Format and display current state
+          const state = session.current_state;
+          if (state) {
+            document.getElementById("session-state").textContent =
+              JSON.stringify(state, null, 2);
+
+            // Extract plan if available
+            if (state.plan_steps && state.plan_steps.length > 0) {
+              const planSteps = state.plan_steps
+                .map(
+                  (step, index) =>
+                    `${index + 1}. ${step.name || "Unnamed step"}: ${
+                      step.description || "No description"
+                    }`
+                )
+                .join("\n\n");
+
+              document.getElementById("session-plan").textContent = planSteps;
+            } else {
+              document.getElementById("session-plan").textContent =
+                "No plan available";
+            }
+
+            // Load timeline if available
+            if (state.event_timeline && state.event_timeline.length > 0) {
+              renderTimeline(state.event_timeline);
+            }
+          } else {
+            document.getElementById("session-state").textContent =
+              "No state information available";
+            document.getElementById("session-plan").textContent =
+              "No plan available";
+          }
+
+          // Set up auto-refresh if session is still running
+          if (session.status === "running") {
+            // Clear existing interval if any
+            if (refreshInterval) {
+              clearInterval(refreshInterval);
+            }
+
+            // Refresh every 5 seconds
+            refreshInterval = setInterval(() => {
+              if (currentSessionId === sessionId) {
+                loadSessionDetails(sessionId);
+              } else {
+                clearInterval(refreshInterval);
+              }
+            }, 5000);
+          } else {
+            // Clear interval if session is not running
+            if (refreshInterval) {
+              clearInterval(refreshInterval);
+              refreshInterval = null;
+            }
+          }
+
+          // Initialize LangGraph visualization
+          initializeGraphVisualization(sessionId);
+        } catch (error) {
+          showError("Failed to load session details: " + error.message);
+        }
+      }
+
+      // Initialize LangGraph visualization
+      function initializeGraphVisualization(sessionId) {
+        const container = document.getElementById("graph-visualization");
+        container.innerHTML = ""; // Clear previous content
+
+        // Find the session data
+        const sessionData = graphData.find((s) => s.session_id === sessionId);
+        if (!sessionData) {
+          container.innerHTML =
+            "<p>No graph data available for this session</p>";
+          return;
+        }
+
+        // Create a new graph visualizer instance
+        graphVisualizer = new GraphVisualizer(container, {
+          nodes: sessionData.nodes,
+          edges: sessionData.edges,
+          // Additional options...
+        });
+
+        // Render the graph
+        graphVisualizer.render();
+      }
+
+      // Start a new session
+      async function startNewSession() {
+        try {
+          const goal = document.getElementById("goal").value;
+          const initialContext =
+            document.getElementById("initial-context").value;
+          const maxIterations = document.getElementById("max-iterations").value;
+
+          if (!goal) {
+            showError("Goal is required");
+            return;
+          }
+
+          const payload = {
+            goal: goal,
+            initial_context: initialContext || undefined,
+            max_iterations: parseInt(maxIterations),
+          };
+
+          // Show loading state
+          const submitButton = document.querySelector(
+            '#session-form button[type="submit"]'
+          );
+          const originalText = submitButton.textContent;
+          submitButton.innerHTML = '<span class="loader"></span> Starting...';
+          submitButton.disabled = true;
+
+          const response = await fetch(`${API_BASE}/session`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await response.json();
+
+          // Reset form
+          document.getElementById("session-form").reset();
+
+          // Reset button
+          submitButton.innerHTML = originalText;
+          submitButton.disabled = false;
+
+          // Reload sessions and select the new one
+          await loadSessions();
+          currentSessionId = data.session_id;
+          loadSessionDetails(data.session_id);
+        } catch (error) {
+          showError("Failed to start session: " + error.message);
+
+          // Reset button
+          const submitButton = document.querySelector(
+            '#session-form button[type="submit"]'
+          );
+          submitButton.textContent = "Start Agent Session";
+          submitButton.disabled = false;
+        }
+      }
+
+      // Export session logs
+      async function exportSessionLogs(sessionId) {
+        try {
+          const response = await fetch(
+            `${API_BASE}/session/${sessionId}/export-log`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                session_id: sessionId,
+                format: "markdown",
+                include_screenshots: true,
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (data.success) {
+            alert(`Logs exported successfully to ${data.file_path}`);
+          } else {
+            showError(`Failed to export logs: ${data.error}`);
+          }
+        } catch (error) {
+          showError("Failed to export logs: " + error.message);
+        }
+      }
+
+      // Export memory snapshot
+      async function exportMemorySnapshot() {
+        try {
+          const response = await fetch(`${API_BASE}/memory/export`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              include_events: true,
+              include_goals: true,
+              compress: true,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            alert(`Memory snapshot exported successfully to ${data.file_path}`);
+          } else {
+            showError(`Failed to export memory: ${data.error}`);
+          }
+        } catch (error) {
+          showError("Failed to export memory: " + error.message);
+        }
+      }
+
+      // Render timeline
+      function renderTimeline(events) {
+        const timelineContainer = document.getElementById("session-timeline");
+        timelineContainer.innerHTML = "";
+
+        if (!events || events.length === 0) {
+          timelineContainer.innerHTML = "<p>No timeline events available</p>";
+          return;
+        }
+
+        events.forEach((event) => {
+          const item = document.createElement("div");
+          item.className = "timeline-item";
+
+          const marker = document.createElement("div");
+          marker.className = "timeline-marker";
+
+          const content = document.createElement("div");
+          content.className = "timeline-content";
+
+          const time = document.createElement("div");
+          time.className = "timeline-time";
+          time.textContent = formatDateTime(event.timestamp || "");
+
+          const action = document.createElement("div");
+          action.innerHTML = `<strong>${
+            event.agent_action || "No action"
+          }</strong>`;
+
+          content.appendChild(time);
+          content.appendChild(action);
+
+          // Add note if available
+          if (event.notes) {
+            const note = document.createElement("div");
+            note.textContent = event.notes;
+            content.appendChild(note);
+          }
+
+          item.appendChild(marker);
+          item.appendChild(content);
+          timelineContainer.appendChild(item);
+        });
+      }
+
+      // Helper to format date/time
+      function formatDateTime(isoString) {
+        if (!isoString) return "Unknown";
+
+        try {
+          const date = new Date(isoString);
+          return date.toLocaleString();
+        } catch (e) {
+          return isoString;
+        }
+      }
+
+      // Show error message
+      function showError(message) {
+        const errorElement = document.getElementById("error-message");
+        errorElement.textContent = message;
+        errorElement.style.display = "block";
+
+        // Hide after 5 seconds
+        setTimeout(() => {
+          errorElement.style.display = "none";
+        }, 5000);
+      }
+
+      // Auto-refresh sessions list every 30 seconds
+      setInterval(loadSessions, 30000);
+    </script>
+  </body>
+</html>

@@ -49,6 +49,13 @@ class AgentState(BaseModel):
     hover_duration: Optional[float] = None
     mouse_down_at: Optional[Dict[str, int]] = None
     mouse_up_at: Optional[Dict[str, int]] = None
+    
+    # Optimization fields
+    optimizations: Optional[Dict[str, Any]] = None
+    skip_planning: Optional[bool] = False
+    skip_memory: Optional[bool] = False
+    skip_goal_generator: Optional[bool] = False
+    memory_light_mode: Optional[bool] = False
     drag_start: Optional[Dict[str, int]] = None
     drag_end: Optional[Dict[str, int]] = None
     
@@ -65,6 +72,12 @@ class AgentState(BaseModel):
     timeline_summary: Optional[Dict[str, Any]] = None
     timeline_error: Optional[str] = None
     last_event_id: Optional[uuid.UUID] = None
+    
+    # API and session management
+    session_id: Optional[uuid.UUID] = None
+    max_iterations: Optional[int] = 5
+    status_message: Optional[str] = None
+    is_api_initiated: Optional[bool] = False
     
     # Add more fields as needed for your agent's state
 

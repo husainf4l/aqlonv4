@@ -4,9 +4,11 @@ Features:
 - Step decomposition with LLM
 - Memory context incorporation
 - Self-critique and plan refinement
+- Recursive planning for multi-goal workflows
 """
 import json
 import time
+import asyncio
 from typing import Dict, List, Any
 from datetime import datetime
 
@@ -15,6 +17,9 @@ from app.state import AgentState
 from app.memory import memory
 from app.settings import settings
 from openai import OpenAI
+
+# Import recursive planning functionality
+from app.nodes.recursive_planning import recursive_planning, get_next_action_from_recursive_plan
 
 # Initialize the OpenAI client
 client = OpenAI(api_key=settings.openai_api_key)
@@ -363,60 +368,118 @@ def planner_node(state: AgentState) -> AgentState:
     """
     Enhanced planner node that breaks goals into steps, incorporates memory context,
     performs self-critique, and generates improved plans.
+    
+    Also supports recursive planning for complex multi-goal workflows.
     """
     logger.info(f"[PlannerNode] Received state: {state}")
     start_time = time.time()
     
     try:
-        # 1. Generate initial plan by decomposing the goal into steps
-        initial_plan = generate_initial_plan(state)
-        if not initial_plan:
-            logger.warning("[PlannerNode] Failed to generate initial plan")
-            # Fall back to simple action
-            state.action = {"type": "click", "x": 100, "y": 200}
-            return state
+        # Check if this is a complex goal that needs recursive planning
+        goal = getattr(state, "goal", "")
+        goal_complexity_threshold = 50  # Characters
         
-        # Record planning progress in state for transparency
-        state.planning_progress = {"phase": "initial_plan_generated", "timestamp": datetime.now().isoformat()}
+        # Determine if we should use recursive planning
+        use_recursive = (
+            len(goal) > goal_complexity_threshold and
+            (
+                "complex" in goal.lower() or 
+                "multiple" in goal.lower() or
+                ";" in goal or
+                "multi-step" in goal.lower() or
+                getattr(state, "force_recursive_planning", False)
+            )
+        )
         
-        # 2. Retrieve memory context
-        memory_context = get_memory_context(state)
-        
-        # 3. Incorporate memory context into the plan
-        context_result = incorporate_context(state, initial_plan, memory_context)
-        refined_plan = context_result["steps"]
-        context_utilized = context_result["context_utilized"]
-        
-        # Update planning progress
-        state.planning_progress = {"phase": "context_incorporated", "timestamp": datetime.now().isoformat()}
-        
-        # 4. Self-critique and improve plan
-        critique_result = self_critique_plan(state, refined_plan)
-        critique = critique_result["critique"]
-        final_plan = critique_result["improved_steps"]
-        
-        # 5. Store the final plan in state
-        state.plan_steps = final_plan
-        state.current_step_index = 0
-        
-        # Ensure critique is a dictionary for state storage
-        if isinstance(critique, list):
-            state.plan_critique = {"issues": critique}
-        else:
-            state.plan_critique = critique if isinstance(critique, dict) else {"critique": critique}
+        # Planner selection based on complexity
+        if use_recursive:
+            logger.info(f"[PlannerNode] Using recursive planning for complex goal: {goal[:50]}...")
             
-        state.plan_context = {
-            "context_utilized": context_utilized,
-            "generated_at": datetime.now().isoformat(),
-            "generation_time_seconds": round(time.time() - start_time, 2)
-        }
-        
-        # 6. Determine the next action based on the first step in the plan
-        state.action = derive_action_from_plan(state)
-        
-        # Log plan summary
-        logger.info(f"[PlannerNode] Generated plan with {len(final_plan)} steps")
-        logger.info(f"[PlannerNode] Next action: {state.action}")
+            # Gather context for recursive planning
+            context = {
+                "vision_state": getattr(state, "vision_state", ""),
+                "browser_page_info": getattr(state, "browser_page_info", {}),
+                "user_context": getattr(state, "user_context", "")
+            }
+            
+            # Check if we already have a recursive plan
+            recursive_plan = getattr(state, "recursive_plan", None)
+            
+            if not recursive_plan:
+                # Create a new recursive plan
+                recursive_plan = asyncio.run(recursive_planning(goal, context))
+                state.recursive_plan = recursive_plan
+                state.current_subgoal_idx = 0
+                state.current_step_idx = 0
+                
+                logger.info(f"[PlannerNode] Created recursive plan with {len(recursive_plan.get('subgoals', []))} subgoals")
+                
+                # Store plan details in state
+                state.plan_context = {
+                    "planning_type": "recursive",
+                    "subgoals_count": len(recursive_plan.get("subgoals", [])),
+                    "planning_time_seconds": recursive_plan.get("planning_time"),
+                    "generated_at": datetime.now().isoformat()
+                }
+            
+            # Get the next action from the recursive plan
+            state.action = asyncio.run(get_next_action_from_recursive_plan(state))
+            
+            logger.info(f"[PlannerNode] Next action from recursive plan: {state.action}")
+            
+        else:
+            # Use standard planning for simpler goals
+            
+            # 1. Generate initial plan by decomposing the goal into steps
+            initial_plan = generate_initial_plan(state)
+            if not initial_plan:
+                logger.warning("[PlannerNode] Failed to generate initial plan")
+                # Fall back to simple action
+                state.action = {"type": "click", "x": 100, "y": 200}
+                return state
+            
+            # Record planning progress in state for transparency
+            state.planning_progress = {"phase": "initial_plan_generated", "timestamp": datetime.now().isoformat()}
+            
+            # 2. Retrieve memory context
+            memory_context = get_memory_context(state)
+            
+            # 3. Incorporate memory context into the plan
+            context_result = incorporate_context(state, initial_plan, memory_context)
+            refined_plan = context_result["steps"]
+            context_utilized = context_result["context_utilized"]
+            
+            # Update planning progress
+            state.planning_progress = {"phase": "context_incorporated", "timestamp": datetime.now().isoformat()}
+            
+            # 4. Self-critique and improve plan
+            critique_result = self_critique_plan(state, refined_plan)
+            critique = critique_result["critique"]
+            final_plan = critique_result["improved_steps"]
+            
+            # 5. Store the final plan in state
+            state.plan_steps = final_plan
+            state.current_step_index = 0
+            
+            # Ensure critique is a dictionary for state storage
+            if isinstance(critique, list):
+                state.plan_critique = {"issues": critique}
+            else:
+                state.plan_critique = critique if isinstance(critique, dict) else {"critique": critique}
+                
+            state.plan_context = {
+                "planning_type": "standard",
+                "context_utilized": context_utilized,
+                "generated_at": datetime.now().isoformat(),
+                "generation_time_seconds": round(time.time() - start_time, 2)
+            }
+            
+            # 6. Determine the next action based on the first step in the plan
+            state.action = derive_action_from_plan(state)
+            
+            # Log plan summary
+            logger.info(f"[PlannerNode] Generated plan with {len(final_plan)} steps")
+            logger.info(f"[PlannerNode] Next action: {state.action}")
         
     except Exception as e:
         logger.error(f"Planner node error: {e}")
