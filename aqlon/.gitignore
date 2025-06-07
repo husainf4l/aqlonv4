@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.env.*
+*.sqlite3
+*.db
+*.log
+*.pot
+*.mo
+*.swp
+.DS_Store

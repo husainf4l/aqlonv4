@@ -1,0 +1,15 @@
+# OpenAI API configuration
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Database configuration option 1 - URL format
+POSTGRES_URL=postgresql://username:password@hostname:port/database_name
+
+# Database configuration option 2 - Individual parameters
+AQLON_DB_HOST=hostname
+AQLON_DB_PORT=5432
+AQLON_DB_NAME=database_name
+AQLON_DB_USER=username
+AQLON_DB_PASSWORD=password
+
+# Unified database URL (used by some ORM tools)
+DATABASE_URL=postgresql://username:password@hostname:port/database_name

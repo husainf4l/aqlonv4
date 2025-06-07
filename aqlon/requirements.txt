@@ -1,0 +1,13 @@
+pydantic-settings
+langgraph
+loguru
+psycopg2-binary
+sqlalchemy
+alembic
+pillow
+pytesseract
+pyautogui
+openai
+numpy
+opencv-python
+# Optional: add more dependencies as needed
